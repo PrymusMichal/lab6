@@ -14,13 +14,11 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
     }
 
-    public void gameList(View v)
-    {
-        Intent intencja = new Intent(
-                getApplicationContext(),
-                GamesList.class);
+    //Method invoke by clicking the Button
+    public void gameList(View v) {
+        Intent intencja = new Intent(getApplicationContext(), GamesList.class);
+        //Sending message what game was choose
         intencja.putExtra("gra", v.getId());
         startActivity(intencja);
-
     }
 }

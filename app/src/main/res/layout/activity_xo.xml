@@ -4,10 +4,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".inRow">
+    tools:context=".xo">
 
     <TextView
-        android:id="@+id/inRowHint"
+        android:id="@+id/xoHint"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
@@ -19,17 +19,22 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <GridView
-        android:id="@+id/gridView"
+        android:id="@+id/xo_gridView"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="8dp"
-        android:numColumns="7"
+        android:numColumns="3"
+        android:background="#e5e5e5"
+        android:verticalSpacing="1dp"
+        android:horizontalSpacing="1dp"
+        android:columnWidth="120px"
+        android:stretchMode="columnWidth"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.51"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/inRowHint" />
+        app:layout_constraintTop_toBottomOf="@+id/xoHint" />
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -17,7 +17,7 @@ import android.widget.TextView;
 import org.json.JSONObject;
 
 //4 in Row gameplay
-public class inRow extends AppCompatActivity {
+public class xo extends AppCompatActivity {
 
     //Constant variables for communicate whit other componets
     public static final String STATUS = "Status";
@@ -45,7 +45,7 @@ public class inRow extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_in_row);
+        setContentView(R.layout.activity_xo);
 
         //Geting actual game status, or 0
         status = getIntent().getIntExtra(inRow.STATUS, inRow.NEW_GAME);
@@ -56,27 +56,28 @@ public class inRow extends AppCompatActivity {
         //show appropriate message above game board
         hints(status);
 
-        //Seting game board as adapter of gridView
-        GridView gv = findViewById(R.id.gridView);
+        //Seting game board as adapter of xo_gridView
+        GridView gv = findViewById(R.id.xo_gridView);
         //in inRowBoard adapter constructor we put History of Moves as initialization
         moves = getIntent().getStringExtra(inRow.MOVES);
-        gv.setAdapter(new inRowBoard(this, moves));
+        gv.setAdapter(new xoBoard(this, moves));
         //Listner for clicking on element
         gv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
                 //You can move only if Your turn (not Waiting Status)
-                if (status != inRow.WAIT) {
+                if (status != xo.WAIT) {
                     //User cannot move
-                    status = inRow.WAIT;
+                    status = xo.WAIT;
                     //Show hint about sending move
-                    hints(inRow.CONNECTION);
+                    hints(xo.CONNECTION);
 
+                    int position = arg2+1;
                     //Getting game (inRowBoard Adapter)
-                    GridView gv = findViewById(R.id.gridView);
-                    inRowBoard game = (inRowBoard) gv.getAdapter();
+                    GridView gv = findViewById(R.id.xo_gridView);
+                    xoBoard game = (xoBoard) gv.getAdapter();
                     //Make Move
-                    if (game.add(arg3) != null)
+                    if (game.add(position) != null)
                         gv.setAdapter(game);
                     else
                         hints(inRow.ERROR);
@@ -86,24 +87,24 @@ public class inRow extends AppCompatActivity {
                             getApplicationContext(),
                             HttpService.class);
                     //Creating PendingIntent - for response
-                    PendingIntent pendingResult = createPendingResult(HttpService.IN_ROW, new Intent(), 0);
+                    PendingIntent pendingResult = createPendingResult(HttpService.XO_GAME, new Intent(), 0);
 
-                    if (game_id == inRow.NEW_GAME) {
+                    if (game_id == xo.NEW_GAME) {
                         //new game
                         //Set data - URL
-                        intencja.putExtra(HttpService.URL, HttpService.LINES);
+                        intencja.putExtra(HttpService.URL, HttpService.XO);
                         //Set data - method of request
                         intencja.putExtra(HttpService.METHOD, HttpService.POST);
                     } else {
                         //existing game
                         //Set data - URL
-                        intencja.putExtra(HttpService.URL, HttpService.LINES + game_id);
+                        intencja.putExtra(HttpService.URL, HttpService.XO + game_id);
                         //Set data - method of request
                         intencja.putExtra(HttpService.METHOD, HttpService.PUT);
                     }
 
                     //Set data - parameters
-                    intencja.putExtra(HttpService.PARAMS, "moves=" + moves + arg3);
+                    intencja.putExtra(HttpService.PARAMS, "moves=" + moves + position);
                     //Set data - intent for result
                     intencja.putExtra(HttpService.RETURN, pendingResult);
                     //Start unBound Service in another Thread
@@ -118,7 +119,7 @@ public class inRow extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         //Result moves
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == HttpService.IN_ROW) {
+        if (requestCode == HttpService.XO_GAME) {
             try {
                 JSONObject response = new JSONObject(data.getStringExtra(HttpService.RESPONSE));
                 if (resultCode == 200) {
@@ -127,8 +128,8 @@ public class inRow extends AppCompatActivity {
                         game_id = response.getInt("game_id");
 
                     //check game status
-                    GridView gv = findViewById(R.id.gridView);
-                    inRowBoard game = (inRowBoard) gv.getAdapter();
+                    GridView gv = findViewById(R.id.xo_gridView);
+                    xoBoard game = (xoBoard) gv.getAdapter();
                     int game_status = game.checkWin();
                     if (game_status == 0)
                         //next turn
@@ -168,25 +169,25 @@ public class inRow extends AppCompatActivity {
                 //Parse response from server
                 JSONObject response = new JSONObject(data.getStringExtra(HttpService.RESPONSE));
                 //new adapter with moves
-                GridView gv = findViewById(R.id.gridView);
+                GridView gv = findViewById(R.id.xo_gridView);
                 //Create new board with geted moves
                 moves = response.getString("moves");
-                inRowBoard game = new inRowBoard(this, moves);
+                xoBoard game = new xoBoard(this, moves);
                 gv.setAdapter(game);
 
                 //check whose turn
                 if (response.getInt("status") == player) {
                     if (game.checkWin() == player) {
-                        hints(inRow.WIN);
+                        hints(xo.WIN);
                     } else if (game.checkWin() != 0) {
-                        hints(inRow.LOSE);
+                        hints(xo.LOSE);
                     } else {
-                        status = inRow.YOUR_TURN;
+                        status = xo.YOUR_TURN;
                         hints(status);
                     }
                 } else {
                     //Cal refresh again after 5sec, because it's not your turn
-                    Thread.sleep(5000);
+                    Thread.sleep(2000);
                     refresh(null);
                 }
 
@@ -197,9 +198,10 @@ public class inRow extends AppCompatActivity {
         }
     }
 
+
     //Set status into TextView (Hint) from String Resource
     private void hints(int status) {
-        TextView hint = findViewById(R.id.inRowHint);
+        TextView hint = findViewById(R.id.xoHint);
         switch (status) {
             case inRow.YOUR_TURN:
                 hint.setText(getString(R.string.your_turn));
@@ -245,7 +247,7 @@ public class inRow extends AppCompatActivity {
         //Creating PendingIntent - for getting result
         PendingIntent pendingResult = createPendingResult(HttpService.REFRESH, new Intent(), 0);
         //Set data - URL
-        intencja.putExtra(HttpService.URL, HttpService.LINES + game_id);
+        intencja.putExtra(HttpService.URL, HttpService.XO + game_id);
         //Set data - method of request
         intencja.putExtra(HttpService.METHOD, HttpService.GET);
         //Set data - intent for result

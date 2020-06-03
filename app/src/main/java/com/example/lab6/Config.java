@@ -1,11 +1,12 @@
 package com.example.lab6;
-
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Base64;
+
+import androidx.annotation.Nullable;
 
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -17,46 +18,18 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import javax.crypto.Cipher;
 
 public class Config extends SQLiteOpenHelper {
-
     private static final int DATABASE_VERSION = 1;
 
-    public Config(Context context) {
-        super(context, "AppConfig",
-                null, DATABASE_VERSION);
+    public Config(@Nullable Context context) {
+        super(context, "AppConfig", null, DATABASE_VERSION);
     }
 
-    @Override
-    public void onCreate(SQLiteDatabase db) {
-        String DATABASE_CREATE =
-                "create table config " +
-                        "(_id integer primary key autoincrement," + "privKey blob not null," + "pubKey string not null);";
-        db.execSQL(DATABASE_CREATE);
-        addKeys(db);
-
-    }
-
-    @Override
-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS config");
-        onCreate(db);
-    }
-
-    private void addKeys(SQLiteDatabase db) {
-        KeyPair keys = generateKeys();
-        ContentValues values = new
-                ContentValues();
-        values.put("privKey",
-                keys.getPrivate().getEncoded());
-        values.put("pubKey",
-                Base64.encodeToString(keys.getPublic().getEncoded(), Base64.DEFAULT));
-        db.insert("config", null, values);
-    }
-
+    //RSA key pair generation
     public static KeyPair generateKeys() {
         KeyPair keyPair = null;
         try {
-            KeyPairGenerator keygen =
-                    KeyPairGenerator.getInstance("RSA");
+            KeyPairGenerator keygen = KeyPairGenerator.getInstance("RSA");
+            //Set key length
             keygen.initialize(512);
             keyPair = keygen.generateKeyPair();
         } catch (NoSuchAlgorithmException e) {
@@ -66,14 +39,75 @@ public class Config extends SQLiteOpenHelper {
         return keyPair;
     }
 
-    public String getPublic(){
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+        String DATABASE_CREATE =
+                "create table config " +
+                        "(_id integer primary key autoincrement," +
+                        "privKey blob not null," +
+                        "pubKey string not null);";
+
+        db.execSQL(DATABASE_CREATE);
+
+        addKeys(db);
+    }
+
+    private void addKeys(SQLiteDatabase db) {
+        KeyPair keys = generateKeys();
+        ContentValues values = new ContentValues();
+
+        values.put("privKey", keys.getPrivate().getEncoded());
+
+        values.put("pubKey", Base64.encodeToString(keys.getPublic().getEncoded(), Base64.DEFAULT));
+        db.insert("config", null, values);
+    }
+
+    //Getting private RSA key as PrivateKey object for async cryptography
+    private PrivateKey getPrivate() {
+        SQLiteDatabase db =
+                this.getReadableDatabase();
+        Cursor cursor =
+                db.query("config",
+                        new String[]{"privKey",},
+                        null, null,
+                        null, null,
+                        null, null);
+        if (cursor != null)
+            cursor.moveToFirst();
+        //Convert bloob data into privateKey
+        PrivateKey privateKey = null;
         try {
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(cursor.getBlob(0)));
+        } catch (Exception ex) {
+        }
+        db.close();
+        return privateKey;
+    }
+
+    //Method returns encrypt sent message with RSA private key
+    public String sign(String msg) {
+        try {
+            //Create object for crypt
+            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            cipher.init(Cipher.ENCRYPT_MODE, getPrivate());
+            //Convert encoded message into base64 format (for sending threw HTTP
+            String sign = Base64.encodeToString(cipher.doFinal(msg.getBytes()), Base64.DEFAULT);
+            return sign;
+        } catch (Exception ex) {
+        }
+        return null;
+    }
+
+    //Get public Key string for veryfi sign
+    public String getPublic() {
+        try {
+            //Get data String from database
             SQLiteDatabase db =
                     this.getReadableDatabase();
             Cursor cursor =
                     db.query("config",
-                            new
-                                    String[]{"pubKey",},
+                            new String[]{"pubKey",},
                             null, null,
                             null, null,
                             null, null);
@@ -81,43 +115,15 @@ public class Config extends SQLiteOpenHelper {
                 cursor.moveToFirst();
             db.close();
             return cursor.getString(0);
-        }catch(Exception ex){ }
+        } catch (Exception ex) {
+        }
         return null;
     }
 
-    private PrivateKey getPrivate(){
-        SQLiteDatabase db =
-                this.getReadableDatabase();
-        Cursor cursor =
-                db.query("config",
-                        new String[] {
-                                "privKey",},
-                        null,null,
-                        null,null,
-                        null,null);
-        if (cursor != null)
-            cursor.moveToFirst();
-        PrivateKey privateKey=null;
-        try {
-            KeyFactory kf =
-                    KeyFactory.getInstance("RSA");
-            privateKey = kf.generatePrivate(new
-                    PKCS8EncodedKeySpec(cursor.getBlob(0)));
-        }catch(Exception ex){}
-        db.close();
-        return privateKey;
-    }
-
-    public String sign(String msg){
-        try {
-            Cipher cipher =
-                    Cipher.getInstance("RSA/ECB/PKCS1Padding");
-            cipher.init(Cipher.ENCRYPT_MODE,
-                    getPrivate());
-            String sign =
-                    Base64.encodeToString(cipher.doFinal(msg.getBytes()), Base64.DEFAULT);
-            return sign;
-        }catch(Exception ex){}
-        return null;
+    //Method recreate database with new keys
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        db.execSQL("DROP TABLE IF EXISTS config");
+        onCreate(db);
     }
 }

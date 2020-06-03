@@ -12,6 +12,7 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
@@ -22,169 +23,243 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 
-public class GamesList extends AppCompatActivity {
 
+public class GamesList extends AppCompatActivity {
+    //information what game was chose
     private int game;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_games_list);
-        Toolbar toolbar = findViewById(R.id.toolbar);
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
+        //Geting info about choosed game
+        Bundle extras = getIntent().getExtras();
+        game = extras.getInt("gra");
+
+        //Implement Refresh by default gesture (slide down)
+        SwipeRefreshLayout swipeLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_container);
+        swipeLayout.setOnRefreshListener(
+                new SwipeRefreshLayout.OnRefreshListener() {
+                    @Override
+                    public void onRefresh() {
+                        refreshGameList();
+                    }
+                }
+        );
+
+        //Calling first refresh to fill ListView
+        refreshGameList();
+
+        //Implement onClick Action - chose game for play
+        ListView list = (ListView) findViewById(R.id.listView);
+        list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+            public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
+                //Seting loading spinner (while reciving message)
+                ProgressBar spinner = (ProgressBar) findViewById(R.id.progressBar1);
+                spinner.setVisibility(View.VISIBLE);
+                //Get info about chosen game
+                String game_id = arg0.getItemAtPosition(arg2).toString().replace("ID: ", "");
+
+                //Creating intent for custom Service
+                Intent intencja = new Intent(
+                        getApplicationContext(),
+                        HttpService.class);
+                //Creating PendingIntent - for getting list back
+                PendingIntent pendingResult = createPendingResult(HttpService.GAME_INFO, new Intent(), 0);
+                //Set data - URL
+                if (game == R.id.inRow) {
+                    intencja.putExtra(HttpService.URL, HttpService.LINES + game_id);
+                } else {
+                    intencja.putExtra(HttpService.URL, HttpService.XO + game_id);
+                }
+                //Set data - method of request
+                intencja.putExtra(HttpService.METHOD, HttpService.GET);
+                //Set data - intent for result
+                intencja.putExtra(HttpService.RETURN, pendingResult);
+                //Start unBound Service in another Thread
+                startService(intencja);
             }
         });
 
-        Bundle extras =
-                getIntent().getExtras();
-        game = extras.getInt("gra");
-        SwipeRefreshLayout swipeLayout =
-                (SwipeRefreshLayout)
-                        findViewById(R.id.swipe_container);
-        swipeLayout.setOnRefreshListener(
-                new
-                        SwipeRefreshLayout.OnRefreshListener() {
-                            @Override
-                            public void onRefresh() {
-                                refreshGameList();
-                            }
-                        }
-        );
-
-
-
+        //Create new game
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intencja = null;
+                switch (game) {
+                    case R.id.inRow:
+                        intencja = new Intent(getApplicationContext(), inRow.class);
+                        //Sending info about game status and taken moves
+                        intencja.putExtra(inRow.STATUS, inRow.NEW_GAME);
+                        //as new game there is no previous moves
+                        intencja.putExtra(inRow.MOVES, "");
+                        break;
+                    default:
+                        intencja = new Intent(getApplicationContext(), xo.class);
+                        //Sending info about game status and taken moves
+                        intencja.putExtra(inRow.STATUS, inRow.NEW_GAME);
+                        //as new game there is no previous moves
+                        intencja.putExtra(inRow.MOVES, "");
+                        break;
+                }
+                startActivity(intencja);
+            }
+        });
     }
 
-    public void refreshGameList(){
-        ProgressBar spinner =
-                (ProgressBar)findViewById(R.id.progressBar1);
+    //Refreshing ListView with available games, geted from serwer (API)
+    public void refreshGameList() {
+        //Seting loading spinner (while reciving message)
+        ProgressBar spinner = (ProgressBar) findViewById(R.id.progressBar1);
         spinner.setVisibility(View.VISIBLE);
-        Snackbar.make(findViewById(R.id.main_list),
-                getString(R.string.refresh),
-                Snackbar.LENGTH_SHORT)
+        //Show a status Bar with info
+        Snackbar.make(findViewById(R.id.main_list), getString(R.string.refresh), Snackbar.LENGTH_SHORT)
                 .setAction("Action", null).show();
+
+        //Geting Layout elements for modyfication
+        ListView list = (ListView) findViewById(R.id.listView);
+        TextView emptyText = (TextView) findViewById(android.R.id.empty);
+
+
+        //Geting available games
+        //Creating intent for custom Service
         Intent intencja = new Intent(
                 getApplicationContext(),
                 HttpService.class);
-        PendingIntent pendingResult =
-                createPendingResult(HttpService.GAMES_LIST,
-                        new Intent(),0);
-        if(game == R.id.inRow){
-            intencja.putExtra(HttpService.URL,
-                    HttpService.LINES);
-        }else{
-            //TODO - geting ticTacToe games list
+        //Creating PendingIntent - for getting list back
+        PendingIntent pendingResult = createPendingResult(HttpService.GAMES_LIST, new Intent(), 0);
+        //Set data - URL for choosen game
+        if (game == R.id.inRow) {
+            intencja.putExtra(HttpService.URL, HttpService.LINES);
+        } else {
+            intencja.putExtra(HttpService.URL, HttpService.XO);
         }
-        intencja.putExtra(HttpService.METHOD,
-                HttpService.GET);
-        intencja.putExtra(HttpService.RETURN,
-                pendingResult);
+        //Set data - method of request
+        intencja.putExtra(HttpService.METHOD, HttpService.GET);
+        //Set data - intent for result
+        intencja.putExtra(HttpService.RETURN, pendingResult);
+        //Start unBound Service in another Thread
         startService(intencja);
     }
 
+    //When Service return games list
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-
         super.onActivityResult(requestCode, resultCode, data);
-        if (HttpService.GAMES_LIST==1) {
-            ProgressBar spinner = (ProgressBar)
-                    findViewById(R.id.progressBar1);
+        if (requestCode == HttpService.GAMES_LIST) {
+            //Hide loading spinner
+            ProgressBar spinner = (ProgressBar) findViewById(R.id.progressBar1);
             spinner.setVisibility(View.GONE);
-            SwipeRefreshLayout swipeLayout =
-                    (SwipeRefreshLayout)
-                            findViewById(R.id.swipe_container);
+            SwipeRefreshLayout swipeLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_container);
             swipeLayout.setRefreshing(false);
+
+            //Get answer as JsonObject
             try {
-                JSONObject response = new
-                        JSONObject(data.getStringExtra(HttpService.RESPONSE));
+                //Parse response as JSON
+                JSONObject response = new JSONObject(data.getStringExtra(HttpService.RESPONSE));
+
                 if (response.getInt("games_count") > 0) {
-                    TextView no_game =
-                            (TextView) findViewById(R.id.empty);
+                    //hide message "no game"
+                    TextView no_game = (TextView) findViewById(R.id.empty);
                     no_game.setVisibility(View.GONE);
-                    JSONArray games = new
-                            JSONArray(response.getString("games"));
-                    ArrayList<String> items = new
-                            ArrayList<String>();
-                    for (int i = 0;
-                         i < response.getInt("games_count"); i++) {
-                        JSONObject game =
-                                games.getJSONObject(i);
+
+                    //get array of games from JSON
+                    JSONArray games = new JSONArray(response.getString("games"));
+                    ArrayList<String> items = new ArrayList<String>();
+
+                    //Parse String list of games (for adapter)
+                    for (int i = 0; i < response.getInt("games_count"); i++) {
+                        JSONObject game = games.getJSONObject(i);
                         items.add("ID: " + game.getString("id"));
                     }
-                    ArrayAdapter<String> gamesAdapter = new ArrayAdapter<String>(this,
-                            android.R.layout.simple_list_item_1, items);
-                    ListView list =
-                            (ListView) findViewById(R.id.listView);
+
+                    //Set adapter to list
+                    ArrayAdapter<String> gamesAdapter =
+                            new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, items);
+                    ListView list = (ListView) findViewById(R.id.listView);
                     list.setAdapter(gamesAdapter);
-                }
+                }//if "no game" do nothing
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
-        }
-        if (HttpService.GAME_INFO==1) {
-            ProgressBar spinner = (ProgressBar)
-                    findViewById(R.id.progressBar1);
+        } else if (requestCode == HttpService.GAME_INFO) {
+            //Hide loading spinner
+            ProgressBar spinner = (ProgressBar) findViewById(R.id.progressBar1);
             spinner.setVisibility(View.GONE);
+
             if (game == R.id.inRow) {
-                Intent intencja = new
-                        Intent(getApplicationContext(), inRow.class);
+                //Create intent to start game 4inRow
+                Intent intencja = new Intent(getApplicationContext(), inRow.class);
+
                 try {
-                    JSONObject response = new
-                            JSONObject(data.getStringExtra(HttpService.RESPONSE));
-                    intencja.putExtra(inRow.GAME_ID,
-                            response.getInt("id"));
-                    if (response.getInt("status") == 0 &&
-                            response.getInt("player1") == 2) {
-                        intencja.putExtra(inRow.STATUS,
-                                inRow.YOUR_TURN);
-                    } else if (response.getInt("status")
-                            == 1 && response.getInt("player1") == 1) {
-                        intencja.putExtra(inRow.STATUS,
-                                inRow.YOUR_TURN);
-                    } else if (response.getInt("status")
-                            == 2 && response.getInt("player1") == 2) {
-                        intencja.putExtra(inRow.STATUS,
-                                inRow.YOUR_TURN);
+                    //Parse server response
+                    JSONObject response = new JSONObject(data.getStringExtra(HttpService.RESPONSE));
+
+                    //Set Game number
+                    intencja.putExtra(inRow.GAME_ID, response.getInt("id"));
+
+                    if (response.getInt("status") == 0 && response.getInt("player1") == 2) {
+                        //connect to new game
+                        intencja.putExtra(inRow.STATUS, inRow.YOUR_TURN);
+                    } else if (response.getInt("status") == 1 && response.getInt("player1") == 1) {
+                        //time to player1 move
+                        intencja.putExtra(inRow.STATUS, inRow.YOUR_TURN);
+                    } else if (response.getInt("status") == 2 && response.getInt("player1") == 2) {
+                        //time to player2 move
+                        intencja.putExtra(inRow.STATUS, inRow.YOUR_TURN);
                     } else
-                        intencja.putExtra(inRow.STATUS,
-                                inRow.WAIT);
-                    intencja.putExtra(inRow.PLAYER,
-                            response.getInt("player1"));
-                    intencja.putExtra(inRow.MOVES,
-                            response.getString("moves"));
+                        intencja.putExtra(inRow.STATUS, inRow.WAIT);
+
+                    //set player number
+                    intencja.putExtra(inRow.PLAYER, response.getInt("player1"));
+                    //set previous moves
+                    intencja.putExtra(inRow.MOVES, response.getString("moves"));
+                    //start game
                     startActivity(intencja);
+
                 } catch (Exception ex) {
+                    //For JSON Object
                     ex.printStackTrace();
                 }
             } else if (game == R.id.ticTac) {
-                //TODO - start chosen game for TicTacToe
+                Intent intencja = new Intent(getApplicationContext(), xo.class);
+
+                try {
+                    //Parse server response
+                    JSONObject response = new JSONObject(data.getStringExtra(HttpService.RESPONSE));
+
+                    //Set Game number
+                    intencja.putExtra(inRow.GAME_ID, response.getInt("id"));
+
+                    if (response.getInt("status") == 0 && response.getInt("player1") == 2) {
+                        //connect to new game
+                        intencja.putExtra(xo.STATUS, xo.YOUR_TURN);
+                    } else if (response.getInt("status") == 1 && response.getInt("player1") == 1) {
+                        //time to player1 move
+                        intencja.putExtra(xo.STATUS, xo.YOUR_TURN);
+                    } else if (response.getInt("status") == 2 && response.getInt("player1") == 2) {
+                        //time to player2 move
+                        intencja.putExtra(xo.STATUS, xo.YOUR_TURN);
+                    } else
+                        intencja.putExtra(xo.STATUS, xo.WAIT);
+
+                    //set player number
+                    intencja.putExtra(xo.PLAYER, response.getInt("player1"));
+                    //set previous moves
+                    intencja.putExtra(xo.MOVES, response.getString("moves"));
+                    //start game
+                    startActivity(intencja);
+
+                } catch (Exception ex) {
+                    //For JSON Object
+                    ex.printStackTrace();
+                }
             }
         }
     }
-
-    public void startGame()
-    {
-        Intent intencja=null;
-        switch (game) {
-            case R.id.inRow:
-                intencja = new
-                        Intent(getApplicationContext(), inRow.class);
-                intencja.putExtra(inRow.STATUS,
-                        inRow.NEW_GAME);
-                intencja.putExtra(inRow.MOVES, "");
-                break;
-            default:
-                //TODO - when gamer choose TicTacToe game
-                break;
-        }
-        startActivity(intencja);
-    }
-
 }
